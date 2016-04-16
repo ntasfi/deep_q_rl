@@ -7,13 +7,14 @@ run_nips.py or run_nature.py.
 import os
 import argparse
 import logging
-import ale_python_interface
+from ple import PLE
 import cPickle
 import numpy as np
 import theano
+import importlib
 
-import ale_experiment
-import ale_agent
+import experiment as ple_experiment
+import agent as ple_agent
 import q_network
 
 def process_args(args, defaults, description):
@@ -26,8 +27,8 @@ def process_args(args, defaults, description):
     description - a string to display at the top of the help message.
     """
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('-r', '--rom', dest="rom", default=defaults.ROM,
-                        help='ROM to run (default: %(default)s)')
+    parser.add_argument('-g', '--game', dest="game", default=defaults.GAME,
+                        help='Game to run (default: %(default)s)')
     parser.add_argument('-e', '--epochs', dest="epochs", type=int,
                         default=defaults.EPOCHS,
                         help='Number of training epochs (default: %(default)s)')
@@ -141,8 +142,7 @@ def process_args(args, defaults, description):
 
     parameters = parser.parse_args(args)
     if parameters.experiment_prefix is None:
-        name = os.path.splitext(os.path.basename(parameters.rom))[0]
-        parameters.experiment_prefix = name
+        parameters.experiment_prefix = parameters.game.lower() 
 
     if parameters.death_ends_episode == 'true':
         parameters.death_ends_episode = True
@@ -171,13 +171,19 @@ def launch(args, defaults, description):
 
     logging.basicConfig(level=logging.INFO)
     parameters = process_args(args, defaults, description)
-
-    if parameters.rom.endswith('.bin'):
-        rom = parameters.rom
-    else:
-        rom = "%s.bin" % parameters.rom
-    full_rom_path = os.path.join(defaults.BASE_ROM_PATH, rom)
-
+    
+    try:
+        module = importlib.import_module("ple.games.%s" % parameters.game.lower())
+        game = getattr(module, parameters.game)
+        if parameters.game == "FlappyBird":
+            game = game()
+        elif parameters.game == "WaterWorld":
+            game = game(width=128, height=128, num_creeps=8)
+        else:
+            game = game(width=128, height=128)
+    except:
+        raise ValueError("The game %s could not be found. Try using the classname, it is case sensitive." % parameters.game)
+    
     if parameters.deterministic:
         rng = np.random.RandomState(123456)
     else:
@@ -186,23 +192,8 @@ def launch(args, defaults, description):
     if parameters.cudnn_deterministic:
         theano.config.dnn.conv.algo_bwd = 'deterministic'
 
-    ale = ale_python_interface.ALEInterface()
-    ale.setInt('random_seed', rng.randint(1000))
-
-    if parameters.display_screen:
-        import sys
-        if sys.platform == 'darwin':
-            import pygame
-            pygame.init()
-            ale.setBool('sound', False) # Sound doesn't work on OSX
-
-    ale.setBool('display_screen', parameters.display_screen)
-    ale.setFloat('repeat_action_probability',
-                 parameters.repeat_action_probability)
-
-    ale.loadROM(full_rom_path)
-
-    num_actions = len(ale.getMinimalActionSet())
+    env = PLE(game, display_screen=parameters.display_screen, rng=rng)
+    num_actions = len(env.getActionSet())
 
     if parameters.nn_file is None:
         network = q_network.DeepQLearner(defaults.RESIZED_WIDTH,
@@ -225,7 +216,7 @@ def launch(args, defaults, description):
         handle = open(parameters.nn_file, 'r')
         network = cPickle.load(handle)
 
-    agent = ale_agent.NeuralAgent(network,
+    agent = ple_agent.NeuralAgent(network,
                                   parameters.epsilon_start,
                                   parameters.epsilon_min,
                                   parameters.epsilon_decay,
@@ -235,7 +226,7 @@ def launch(args, defaults, description):
                                   parameters.update_frequency,
                                   rng)
 
-    experiment = ale_experiment.ALEExperiment(ale, agent,
+    experiment = ple_experiment.PLEExperiment(env, agent,
                                               defaults.RESIZED_WIDTH,
                                               defaults.RESIZED_HEIGHT,
                                               parameters.resize_method,
@@ -247,7 +238,8 @@ def launch(args, defaults, description):
                                               parameters.max_start_nullops,
                                               rng)
 
-
+    
+    env.init()
     experiment.run()
 
 

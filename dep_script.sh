@@ -34,19 +34,37 @@ cd ./pylearn2
 python setup.py develop --user
 cd ..
 
-if [ ! -d "./ALE" ]
+echo "==>installing Pillow ..."
+pip install --user Pillow
+
+if [ ! -d "./pygame" ]
 then
-echo "==>installing ALE ..."
+echo "==>installing PyGame ..."
 
-# dependencies ...
-sudo apt-get install libsdl1.2-dev libsdl-gfx1.2-dev libsdl-image1.2-dev cmake
+#install dependencies for pygame
+sudo apt-get install mercurial libav-tools \
+    libsdl-image1.2-dev libsdl-mixer1.2-dev libsdl-ttf2.0-dev libsmpeg-dev \
+    libsdl1.2-dev  libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev
+ 
+# pygame source
+hg clone https://bitbucket.org/pygame/pygame
+fi
+ 
+# build and install pygame
+cd pygame
+python setup.py build
+sudo python setup.py install
+cd ..
 
-git clone https://github.com/mgbellemare/Arcade-Learning-Environment ALE
-cd ./ALE
-cmake -DUSE_SDL=ON -DUSE_RLGLUE=OFF .
-make -j2
-pip install --user .
+if [ ! -d "./PyGame-Learning-Environment" ]
+then
+echo "==>installing PLE"
+
+git clone https://github.com/ntasfi/PyGame-Learning-Environment
+cd PyGame-Learning-Environment
+sudo pip install -e .
 cd ..
 fi
+
 
 echo "==>All done!"

@@ -2,34 +2,35 @@
 Q-learning agent in the Arcade Learning Environment.
 
 Author: Nathan Sprague
+Modified by Norman Tasfi for PyGame Learning Environment (PLE)
 
 """
 import logging
 import numpy as np
+from PIL import Image
 import cv2
 
-# Number of rows to crop off the bottom of the (downsampled) screen.
-# This is appropriate for breakout, but it may need to be modified
-# for other games.
 CROP_OFFSET = 8
 
-
-class ALEExperiment(object):
-    def __init__(self, ale, agent, resized_width, resized_height,
+class PLEExperiment(object):
+    def __init__(self, ple, agent, resized_width, resized_height,
                  resize_method, num_epochs, epoch_length, test_length,
                  frame_skip, death_ends_episode, max_start_nullops, rng):
-        self.ale = ale
+        self.ple = ple
         self.agent = agent
         self.num_epochs = num_epochs
         self.epoch_length = epoch_length
         self.test_length = test_length
         self.frame_skip = frame_skip
         self.death_ends_episode = death_ends_episode
-        self.min_action_set = ale.getMinimalActionSet()
+        self.min_action_set = ple.getActionSet()
         self.resized_width = resized_width
         self.resized_height = resized_height
         self.resize_method = resize_method
-        self.width, self.height = ale.getScreenDims()
+        self.width, self.height = ple.getScreenDims()
+
+        print self.resized_width, self.resized_height
+        print self.width, self.height
 
         self.buffer_length = 2
         self.buffer_count = 0
@@ -52,7 +53,9 @@ class ALEExperiment(object):
 
             if self.test_length > 0:
                 self.agent.start_testing()
+                self.ple.display_screen = True
                 self.run_epoch(epoch, self.test_length, True)
+                self.ple.display_screen = False
                 self.agent.finish_testing(epoch)
 
     def run_epoch(self, epoch, num_steps, testing=False):
@@ -83,18 +86,18 @@ class ALEExperiment(object):
         performs a randomly determined number of null action to randomize
         the initial game state."""
 
-        if not self.terminal_lol or self.ale.game_over():
-            self.ale.reset_game()
+        if not self.terminal_lol or self.ple.game_over():
+            self.ple.reset_game()
 
             if self.max_start_nullops > 0:
                 random_actions = self.rng.randint(0, self.max_start_nullops+1)
                 for _ in range(random_actions):
-                    self._act(0) # Null action
+                    self._act(self.ple.NOOP) # Null action
 
-        # Make sure the screen buffer is filled at the beginning of
-        # each episode...
-        self._act(0)
-        self._act(0)
+        #fill buffer up
+        self._act(self.ple.NOOP)
+        self._act(self.ple.NOOP)
+
 
 
     def _act(self, action):
@@ -103,10 +106,10 @@ class ALEExperiment(object):
         buffer
 
         """
-        reward = self.ale.act(action)
+        reward = self.ple.act(action)
         index = self.buffer_count % self.buffer_length
-
-        self.ale.getScreenGrayscale(self.screen_buffer[index, ...])
+        
+        self.screen_buffer[index, ...] = np.transpose( self.ple.getScreenGrayscale() )
 
         self.buffer_count += 1
         return reward
@@ -134,16 +137,19 @@ class ALEExperiment(object):
 
         self._init_episode()
 
-        start_lives = self.ale.lives()
+        start_lives = self.ple.lives()
 
         action = self.agent.start_episode(self.get_observation())
         num_steps = 0
         while True:
             reward = self._step(self.min_action_set[action])
             self.terminal_lol = (self.death_ends_episode and not testing and
-                                 self.ale.lives() < start_lives)
-            terminal = self.ale.game_over() or self.terminal_lol
+                                 self.ple.lives() < start_lives)
+            terminal = self.ple.game_over() or self.terminal_lol
             num_steps += 1
+
+            if num_steps%1000 == 0:
+                print "num_steps", num_steps
 
             if terminal or num_steps >= max_steps:
                 self.agent.end_episode(reward, terminal)
@@ -160,6 +166,7 @@ class ALEExperiment(object):
         index = self.buffer_count % self.buffer_length - 1
         max_image = np.maximum(self.screen_buffer[index, ...],
                                self.screen_buffer[index - 1, ...])
+       
         return self.resize_image(max_image)
 
     def resize_image(self, image):
@@ -171,19 +178,23 @@ class ALEExperiment(object):
                 float(self.height) * self.resized_width / self.width))
 
             resized = cv2.resize(image,
-                                 (self.resized_width, resize_height),
-                                 interpolation=cv2.INTER_LINEAR)
+                                  (self.resized_width, resize_height),
+                                  interpolation=cv2.INTER_LINEAR)
 
-            # Crop the part we want
-            crop_y_cutoff = resize_height - CROP_OFFSET - self.resized_height
-            cropped = resized[crop_y_cutoff:
-                              crop_y_cutoff + self.resized_height, :]
+            if resize_height != self.resized_height:
+                # Crop the part we want
+                crop_y_cutoff = resize_height - CROP_OFFSET - self.resized_height
+                cropped = resized[crop_y_cutoff:
+                                  crop_y_cutoff + self.resized_height, :]
 
-            return cropped
+                return cropped
+            else:
+                return resized
+
         elif self.resize_method == 'scale':
-            return cv2.resize(image,
-                              (self.resized_width, self.resized_height),
-                              interpolation=cv2.INTER_LINEAR)
+            #resized = np.array( Image.fromarray( image ).resize( (self.resized_width, self.resized_height),  resample=Image.BILINEAR) )
+            resized = cv2.resize(image, (self.resized_width, self.resized_height), interpolation=cv2.INTER_LINEAR)
+            return resized
         else:
             raise ValueError('Unrecognized image resize method.')
 

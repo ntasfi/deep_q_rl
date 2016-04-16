@@ -14,7 +14,7 @@ def run_watch():
                '--display-screen']
 
     if len(sys.argv) > 2:
-        command.extend(['--rom', sys.argv[2]])
+        command.extend(['-g', sys.argv[2]])
 
     p1 = subprocess.Popen(command)
     
