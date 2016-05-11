@@ -138,6 +138,10 @@ class DeepQLearner:
                                               self.rms_epsilon)
         elif update_rule == 'sgd':
             updates = lasagne.updates.sgd(loss, params, self.lr)
+
+        elif update_rule == 'adam':
+            updates = lasagne.updates.adam(loss, params, learning_rate=self.lr)
+
         else:
             raise ValueError("Unrecognized update: {}".format(update_rule))
 

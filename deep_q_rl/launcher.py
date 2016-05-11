@@ -38,6 +38,9 @@ def process_args(args, defaults, description):
     parser.add_argument('-t', '--test-length', dest="steps_per_test",
                         type=int, default=defaults.STEPS_PER_TEST,
                         help='Number of steps per test (default: %(default)s)')
+    parser.add_argument('--force-fps', dest="force_fps",
+                        action='store_false', default=True,
+                        help='Speed the fps up. Flagging this disables it')
     parser.add_argument('--display-screen', dest="display_screen",
                         action='store_true', default=False,
                         help='Show the game screen.')
@@ -171,6 +174,8 @@ def launch(args, defaults, description):
 
     logging.basicConfig(level=logging.INFO)
     parameters = process_args(args, defaults, description)
+
+    rewards = {}
     
     try:
         module = importlib.import_module("ple.games.%s" % parameters.game.lower())
@@ -178,9 +183,9 @@ def launch(args, defaults, description):
         if parameters.game == "FlappyBird":
             game = game()
         elif parameters.game == "WaterWorld":
-            game = game(width=128, height=128, num_creeps=8)
+            game = game(width=84, height=84, num_creeps=6)
         else:
-            game = game(width=128, height=128)
+            game = game(width=84, height=84)
     except:
         raise ValueError("The game %s could not be found. Try using the classname, it is case sensitive." % parameters.game)
     
@@ -192,7 +197,15 @@ def launch(args, defaults, description):
     if parameters.cudnn_deterministic:
         theano.config.dnn.conv.algo_bwd = 'deterministic'
 
-    env = PLE(game, display_screen=parameters.display_screen, rng=rng)
+    env = PLE(
+            game,
+            fps=60,
+            force_fps=parameters.force_fps, 
+            display_screen=parameters.display_screen,
+            reward_values=rewards,
+            rng=rng
+    )
+
     num_actions = len(env.getActionSet())
 
     if parameters.nn_file is None:

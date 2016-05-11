@@ -172,7 +172,10 @@ class PLEExperiment(object):
     def resize_image(self, image):
         """ Appropriately resize a single image """
 
-        if self.resize_method == 'crop':
+        #if the image is the same size, which we can control with PLE
+        if image.shape[0] == self.width and image.shape[1] == self.resized_height:
+            return image
+        elif self.resize_method == 'crop':
             # resize keeping aspect ratio
             resize_height = int(round(
                 float(self.height) * self.resized_width / self.width))

@@ -16,13 +16,13 @@ class Defaults:
     # Experiment Parameters
     # ----------------------
     STEPS_PER_EPOCH = 250000
-    EPOCHS = 200
+    EPOCHS = 50#100#200
     STEPS_PER_TEST = 125000
 
     # ----------------------
     # ALE Parameters
     # ----------------------
-    GAME = 'Pixelcopter'
+    GAME = 'WaterWorld'
     FRAME_SKIP = 4
     REPEAT_ACTION_PROBABILITY = 0
 

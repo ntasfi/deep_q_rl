@@ -22,7 +22,7 @@ class Defaults:
     # ----------------------
     # ALE Parameters
     # ----------------------
-    GAME = 'Pixelcopter'
+    GAME = 'WaterWorld'
     FRAME_SKIP = 4
     REPEAT_ACTION_PROBABILITY = 0
 
